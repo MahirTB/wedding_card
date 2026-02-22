@@ -710,6 +710,8 @@
         min-height: 100svh;
         padding: clamp(16px, 4vh, 28px) 12px;
         align-items: center;
+        animation: none;
+        background-size: auto;
       }
 
       .card {
@@ -718,6 +720,27 @@
         overflow-y: auto;
         overflow-x: hidden;
         -webkit-overflow-scrolling: touch;
+      }
+
+      .card-glow,
+      .sparkles,
+      .top::after,
+      .ambient-bg {
+        display: none;
+      }
+
+      .card {
+        backdrop-filter: none;
+      }
+
+      .shooting-star {
+        box-shadow: 0 0 6px rgba(255, 255, 255, 0.7);
+      }
+
+      .shooting-star::after {
+        width: 42px;
+        left: -42px;
+        opacity: 0.7;
       }
 
       .top,
@@ -822,13 +845,29 @@
       let rafId = null;
       let starRampId = null;
       let parallaxRafId = null;
+      let canvasScale = 1;
+      let viewportWidth = window.innerWidth;
+      let viewportHeight = window.innerHeight;
 
       const colors = ["#b98ce6", "#dbc1ff", "#7e59a7", "#f5ebff", "#ffffff"];
       const starRampDuration = 14000;
+      const MOBILE_BREAKPOINT = 760;
+
+      function isMobileView() {
+        return window.innerWidth <= MOBILE_BREAKPOINT;
+      }
 
       function resizeCanvas() {
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
+        const width = window.innerWidth;
+        const height = window.innerHeight;
+        viewportWidth = width;
+        viewportHeight = height;
+        canvasScale = Math.min(window.devicePixelRatio || 1, isMobileView() ? 1.2 : 2);
+        canvas.width = Math.round(width * canvasScale);
+        canvas.height = Math.round(height * canvasScale);
+        canvas.style.width = `${width}px`;
+        canvas.style.height = `${height}px`;
+        ctx.setTransform(canvasScale, 0, 0, canvasScale, 0, 0);
       }
 
       function random(min, max) {
@@ -836,7 +875,7 @@
       }
 
       function getStarTarget() {
-        return window.innerWidth < 760 ? 56 : 96;
+        return isMobileView() ? 20 : 72;
       }
 
       function buildShootingStar() {
@@ -930,6 +969,7 @@
       }
 
       function applyScrollParallax() {
+        if (isMobileView()) return;
         const scrollSource = window.innerWidth <= 760 && card ? card.scrollTop : window.scrollY;
         const offset = Math.max(0, Math.min(scrollSource, window.innerHeight * 1.2));
 
@@ -951,13 +991,19 @@
       }
 
       function spawnConfetti() {
-        const burstCount = 180;
-        const originX = canvas.width * 0.5;
-        const originY = canvas.height * 0.62;
+        const burstCount = isMobileView() ? 72 : 140;
+        const originX = viewportWidth * 0.5;
+        const originY = viewportHeight * 0.62;
+        const speedMultiplier = isMobileView() ? 0.82 : 1;
+        const maxPieces = isMobileView() ? 110 : 220;
+
+        if (confetti.length > maxPieces) {
+          confetti.splice(0, confetti.length - maxPieces);
+        }
 
         for (let i = 0; i < burstCount; i += 1) {
           const angle = random(-Math.PI, 0);
-          const speed = random(4.5, 11.5);
+          const speed = random(4.5, 11.5) * speedMultiplier;
 
           confetti.push({
             x: originX + random(-140, 140),
@@ -966,7 +1012,7 @@
             vy: Math.sin(angle) * speed,
             gravity: random(0.11, 0.2),
             drag: random(0.986, 0.994),
-            size: random(6, 11),
+            size: random(isMobileView() ? 4 : 6, isMobileView() ? 8 : 11),
             color: colors[Math.floor(Math.random() * colors.length)],
             rotate: random(0, Math.PI * 2),
             rotateSpeed: random(-0.22, 0.22),
@@ -980,7 +1026,7 @@
       }
 
       function animate() {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.clearRect(0, 0, viewportWidth, viewportHeight);
 
         for (let i = confetti.length - 1; i >= 0; i -= 1) {
           const piece = confetti[i];
@@ -989,9 +1035,9 @@
           piece.x += piece.vx;
           piece.y += piece.vy;
           piece.rotate += piece.rotateSpeed;
-          piece.life -= 0.008;
+          piece.life -= isMobileView() ? 0.014 : 0.009;
 
-          if (piece.life <= 0 || piece.y > canvas.height + 40) {
+          if (piece.life <= 0 || piece.y > viewportHeight + 40) {
             confetti.splice(i, 1);
             continue;
           }
